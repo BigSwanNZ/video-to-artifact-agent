@@ -74,8 +74,20 @@ v2a schema build-spec
 v2a exit-codes
 ```
 
-The current implementation validates and emits the public contracts. Runtime
-adapters, ASR, Excel generation, and visual verifiers are tracked as follow-on
+The current implementation validates and emits the public contracts, and includes
+an initial Apple Silicon `mac-mlx` adapter:
+
+```bash
+v2a mac-mlx-capabilities
+v2a mac-mlx-command "https://example.com/video.mp4?signature=secret"
+v2a mac-mlx-observe "https://example.com/video.mp4?signature=secret" \
+  --artifact-type excel \
+  --out runs/demo/spec.json
+```
+
+`mac-mlx-command` redacts signed URL query strings by default. Runtime execution
+uses `mlx_vlm.generate --video` and writes L3 visual evidence into the build
+spec. ASR, Excel generation, and visual verifiers are tracked as follow-on
 issues.
 
 ## Repository Layout

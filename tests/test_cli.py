@@ -54,6 +54,32 @@ def test_cli_schema_command() -> None:
     assert "BuildSpec" in result.output or "artifact" in result.output
 
 
+def test_cli_mac_mlx_capabilities() -> None:
+    result = runner.invoke(app, ["mac-mlx-capabilities", "--model", "mlx-test"])
+
+    assert result.exit_code == 0, result.output
+    assert '"runtime": "mac-mlx"' in result.output
+    assert '"engine": "mlx-vlm"' in result.output
+    assert '"model": "mlx-test"' in result.output
+
+
+def test_cli_mac_mlx_command_redacts_url_secrets() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "mac-mlx-command",
+            "https://cdn.example.com/demo.mp4?token=secret",
+            "--prompt",
+            "Summarize",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert '"secret_material_omitted": true' in result.output
+    assert "token=secret" not in result.output
+    assert "https://cdn.example.com/demo.mp4?<redacted>" in result.output
+
+
 def test_cli_verify_missing_artifact_exits_2(tmp_path: Path) -> None:
     report_path = tmp_path / "report.json"
     result = runner.invoke(app, ["verify", str(tmp_path / "missing.json"), "--out", str(report_path)])

@@ -6,6 +6,13 @@ from urllib.parse import urlparse
 
 import typer
 
+from video_to_artifact_agent.privacy import redact_text, redact_url
+from video_to_artifact_agent.runtimes.mac_mlx import (
+    DEFAULT_MODEL as MAC_MLX_DEFAULT_MODEL,
+    DEFAULT_PROMPT as MAC_MLX_DEFAULT_PROMPT,
+    MacMlxRuntimeAdapter,
+    MacMlxRuntimeConfig,
+)
 from video_to_artifact_agent.schemas import (
     CLI_EXIT_CODES,
     ArtifactRequirement,
@@ -32,6 +39,35 @@ def source_info_from_input(source: str) -> SourceInfo:
     if parsed.scheme in {"http", "https"}:
         return SourceInfo(kind=SourceKind.url, url=source, evidence_level="L0")
     return SourceInfo(kind=SourceKind.local_file, local_path=source, evidence_level="L0")
+
+
+def display_source_info(source: SourceInfo) -> dict[str, object]:
+    payload = source.model_dump(mode="json")
+    if isinstance(payload.get("url"), str):
+        payload["url"] = redact_url(payload["url"])
+    return payload
+
+
+def mac_mlx_adapter(
+    model: str,
+    executable: str,
+    max_tokens: int,
+    temperature: float,
+    timeout_sec: int,
+    max_num_frames: int,
+    max_width: int | None,
+) -> MacMlxRuntimeAdapter:
+    return MacMlxRuntimeAdapter(
+        MacMlxRuntimeConfig(
+            model=model,
+            executable=executable,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            timeout_sec=timeout_sec,
+            max_num_frames=max_num_frames,
+            max_width=max_width,
+        )
+    )
 
 
 @app.command()
@@ -64,6 +100,121 @@ def capabilities(
     typer.echo(manifest.model_dump_json(indent=2))
 
 
+@app.command(name="mac-mlx-capabilities")
+def mac_mlx_capabilities(
+    model: str = typer.Option(MAC_MLX_DEFAULT_MODEL, help="MLX model identifier."),
+    executable: str = typer.Option("mlx_vlm.generate", help="mlx-vlm command to invoke."),
+    max_tokens: int = typer.Option(512, help="Maximum response tokens for observation."),
+    temperature: float = typer.Option(0.0, help="Model sampling temperature."),
+    timeout_sec: int = typer.Option(420, help="Runtime timeout in seconds."),
+    max_num_frames: int = typer.Option(128, help="Maximum video frames requested by the adapter."),
+    max_width: int | None = typer.Option(1280, help="Optional video resize width."),
+) -> None:
+    """Print the Apple Silicon MLX MiniCPM-V runtime manifest."""
+    adapter = mac_mlx_adapter(
+        model=model,
+        executable=executable,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        timeout_sec=timeout_sec,
+        max_num_frames=max_num_frames,
+        max_width=max_width,
+    )
+    typer.echo(adapter.capability().model_dump_json(indent=2))
+
+
+@app.command(name="mac-mlx-command")
+def mac_mlx_command(
+    source: str = typer.Argument(..., help="Direct video URL or local video path."),
+    prompt: str = typer.Option(MAC_MLX_DEFAULT_PROMPT, help="Observation prompt."),
+    model: str = typer.Option(MAC_MLX_DEFAULT_MODEL, help="MLX model identifier."),
+    executable: str = typer.Option("mlx_vlm.generate", help="mlx-vlm command to invoke."),
+    max_tokens: int = typer.Option(512, help="Maximum response tokens for observation."),
+    temperature: float = typer.Option(0.0, help="Model sampling temperature."),
+    timeout_sec: int = typer.Option(420, help="Runtime timeout in seconds."),
+    max_num_frames: int = typer.Option(128, help="Maximum video frames requested by the adapter."),
+    max_width: int | None = typer.Option(1280, help="Optional video resize width."),
+    unsafe_show_secret_urls: bool = typer.Option(
+        False,
+        "--unsafe-show-secret-urls",
+        help="Print raw URL query strings. Avoid in logs and shared output.",
+    ),
+) -> None:
+    """Print the mac-mlx invocation envelope without running the model."""
+    adapter = mac_mlx_adapter(
+        model=model,
+        executable=executable,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        timeout_sec=timeout_sec,
+        max_num_frames=max_num_frames,
+        max_width=max_width,
+    )
+    source_info = source_info_from_input(source)
+    raw_command = adapter.build_command(source_info, prompt)
+    payload = {
+        "runtime": adapter.capability().model_dump(mode="json"),
+        "source": display_source_info(source_info),
+        "command": raw_command if unsafe_show_secret_urls else adapter.redacted_command(source_info, prompt),
+        "redacted_command": adapter.redacted_command(source_info, prompt),
+        "secret_material_omitted": not unsafe_show_secret_urls,
+    }
+    typer.echo(json.dumps(payload, indent=2))
+
+
+@app.command(name="mac-mlx-observe")
+def mac_mlx_observe(
+    source: str = typer.Argument(..., help="Direct video URL or local video path."),
+    out: Path = typer.Option(Path("runs/mac-mlx/spec.json"), help="Output build spec path."),
+    prompt: str = typer.Option(MAC_MLX_DEFAULT_PROMPT, help="Observation prompt."),
+    artifact_type: str = typer.Option("unknown", help="Target artifact type."),
+    title: str | None = typer.Option(None, help="Artifact title."),
+    instructions: str | None = typer.Option(None, help="Builder instructions."),
+    model: str = typer.Option(MAC_MLX_DEFAULT_MODEL, help="MLX model identifier."),
+    executable: str = typer.Option("mlx_vlm.generate", help="mlx-vlm command to invoke."),
+    max_tokens: int = typer.Option(512, help="Maximum response tokens for observation."),
+    temperature: float = typer.Option(0.0, help="Model sampling temperature."),
+    timeout_sec: int = typer.Option(420, help="Runtime timeout in seconds."),
+    max_num_frames: int = typer.Option(128, help="Maximum video frames requested by the adapter."),
+    max_width: int | None = typer.Option(1280, help="Optional video resize width."),
+) -> None:
+    """Run MiniCPM-V through mlx-vlm and write an L3 build spec."""
+    adapter = mac_mlx_adapter(
+        model=model,
+        executable=executable,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        timeout_sec=timeout_sec,
+        max_num_frames=max_num_frames,
+        max_width=max_width,
+    )
+    source_info = source_info_from_input(source)
+    try:
+        result = adapter.observe(source_info, prompt)
+    except (RuntimeError, ValueError, TimeoutError) as exc:
+        typer.echo(redact_text(str(exc)), err=True)
+        raise typer.Exit(3) from exc
+
+    spec = BuildSpec(
+        source=source_info,
+        runtime=adapter.capability(),
+        observations=[result.observation],
+        evidence=[result.evidence],
+        artifact=ArtifactRequirement(
+            artifact_type=artifact_type,  # type: ignore[arg-type]
+            title=title,
+            instructions=instructions,
+        ),
+        requirements={
+            "workflow_stage": "visual_observation_complete",
+            "prompt": prompt,
+            "runtime_command": result.redacted_command,
+        },
+    )
+    write_json(out, spec.model_dump_json(indent=2))
+    typer.echo(f"Wrote mac-mlx build spec: {out}")
+
+
 @app.command()
 def analyze(
     source: str = typer.Argument(..., help="Video URL or local video path."),
@@ -87,7 +238,7 @@ def analyze(
                 kind=EvidenceKind.metadata,
                 level="L0",
                 summary="Initial source registered by CLI; no video or ASR evidence has been collected yet.",
-                source_ref=source,
+                source_ref=redact_text(source),
             )
         ],
         artifact=ArtifactRequirement(
