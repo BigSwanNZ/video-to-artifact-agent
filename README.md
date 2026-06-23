@@ -72,9 +72,14 @@ examples/                   reproducible demos without private cookies or videos
 tests/                      unit and smoke tests
 ```
 
+## Task Management
+
+GitHub Issues are the public collaboration surface. Paperclip can be used as an
+internal agent coordination plane for goals, projects, assignees, and threaded
+work logs. See [docs/task-management.md](docs/task-management.md).
+
 ## Privacy And Safety
 
 Never commit cookies, signed CDN URLs, raw private transcripts, downloaded
 training videos, model weights, or local cache paths. The project should support
 redaction and cache cleanup by default.
-
