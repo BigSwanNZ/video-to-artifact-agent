@@ -50,18 +50,33 @@ privacy-aware toolkit.
 Each adapter reports a capability manifest so agents can choose the right path
 without guessing.
 
-## Planned CLI
+## CLI Contract
 
 ```bash
-v2a analyze https://example.com/video \
+v2a capabilities \
   --runtime mac-mlx \
   --model openbmb/MiniCPM-V-4.6 \
-  --asr mlx-whisper \
+  --video-url \
+  --local-video \
+  --image \
+  --max-num-frames 128
+
+v2a analyze https://example.com/video \
+  --artifact-type excel \
+  --title "Demo model" \
+  --runtime mac-mlx \
+  --model openbmb/MiniCPM-V-4.6 \
   --out runs/demo/spec.json
 
-v2a build excel runs/demo/spec.json --out artifacts/demo.xlsx
-v2a verify artifacts/demo.xlsx --spec runs/demo/spec.json
+v2a build runs/demo/spec.json --out artifacts/demo-handoff.json
+v2a verify artifacts/demo-handoff.json --spec runs/demo/spec.json
+v2a schema build-spec
+v2a exit-codes
 ```
+
+The current implementation validates and emits the public contracts. Runtime
+adapters, ASR, Excel generation, and visual verifiers are tracked as follow-on
+issues.
 
 ## Repository Layout
 
