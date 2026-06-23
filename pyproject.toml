@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "video-to-artifact-agent"
+version = "0.0.1"
+description = "Agent-neutral workflow for turning videos into verified artifacts."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Video-to-Artifact Agent Contributors" }]
+dependencies = [
+  "pydantic>=2.7",
+  "typer>=0.12",
+]
+
+[project.scripts]
+v2a = "video_to_artifact_agent.cli.main:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
