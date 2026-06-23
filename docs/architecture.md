@@ -52,6 +52,29 @@ Adapters must declare what they can actually do:
 
 The orchestrator should never assume video support from a model name alone.
 
+## Public Contracts
+
+The first public contracts are implemented as Pydantic models:
+
+- `RuntimeCapability`: what a runtime/model adapter can handle.
+- `SourceInfo`: source URL, local file, synthetic input, and metadata.
+- `TranscriptEvidence`: ASR/subtitle segments plus coverage gate fields.
+- `VideoObservation`: visual evidence from a video-capable model.
+- `EvidenceRecord`: normalized traceable evidence.
+- `BuildSpec`: source, runtime, evidence, target artifact, and builder requirements.
+- `VerificationReport`: checks and final pass/fail/blocked status.
+
+CLI commands expose these contracts:
+
+```bash
+v2a capabilities
+v2a analyze <source>
+v2a build <spec.json>
+v2a verify <artifact> --spec <spec.json>
+v2a schema build-spec
+v2a exit-codes
+```
+
 ## Evidence Levels
 
 - `L0`: metadata only.
@@ -60,4 +83,3 @@ The orchestrator should never assume video support from a model name alone.
 - `L3`: video frames, OCR, screenshots, or video-observation evidence.
 
 Generated artifacts should include their achieved evidence level.
-
