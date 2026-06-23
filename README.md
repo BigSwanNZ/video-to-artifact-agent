@@ -68,10 +68,15 @@ v2a analyze https://example.com/video \
   --model openbmb/MiniCPM-V-4.6 \
   --out runs/demo/spec.json
 
-v2a build runs/demo/spec.json --out artifacts/demo-handoff.json
-v2a verify artifacts/demo-handoff.json --spec runs/demo/spec.json
+v2a attach-transcript runs/demo/spec.json examples/data-center-excel-model/transcript.srt \
+  --audio-duration-sec 12 \
+  --require-coverage
+
+v2a build runs/demo/spec.json --out artifacts/demo.xlsx
+v2a verify artifacts/demo.xlsx --spec runs/demo/spec.json
 v2a schema build-spec
 v2a exit-codes
+v2a mcp-manifest
 ```
 
 The current implementation validates and emits the public contracts, and includes
@@ -87,8 +92,16 @@ v2a mac-mlx-observe "https://example.com/video.mp4?signature=secret" \
 
 `mac-mlx-command` redacts signed URL query strings by default. Runtime execution
 uses `mlx_vlm.generate --video` and writes L3 visual evidence into the build
-spec. ASR, Excel generation, and visual verifiers are tracked as follow-on
-issues.
+spec. `attach-transcript` adds L2 subtitle or ASR evidence. Excel specs build to
+real `.xlsx` workbooks with formula checks.
+
+HTTP and MCP-style adapters expose the same contracts to non-Codex agents:
+
+```bash
+v2a serve-http --host 127.0.0.1 --port 8765
+v2a mcp-call video_to_artifact.analyze \
+  --arguments-json '{"source":"https://example.com/video.mp4","artifact_type":"excel"}'
+```
 
 ## Repository Layout
 

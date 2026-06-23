@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from urllib.parse import urlparse
-
 import typer
 
+from video_to_artifact_agent.adapters.http import make_server
+from video_to_artifact_agent.adapters.mcp import dispatch_tool, tool_manifest
+from video_to_artifact_agent.builders.excel import build_excel_workbook
 from video_to_artifact_agent.privacy import redact_text, redact_url
 from video_to_artifact_agent.runtimes.mac_mlx import (
     DEFAULT_MODEL as MAC_MLX_DEFAULT_MODEL,
@@ -17,14 +18,18 @@ from video_to_artifact_agent.schemas import (
     CLI_EXIT_CODES,
     ArtifactRequirement,
     BuildSpec,
-    EvidenceKind,
-    EvidenceRecord,
     RuntimeCapability,
     SourceInfo,
-    SourceKind,
     VerificationCheck,
     VerificationReport,
 )
+from video_to_artifact_agent.transcripts import (
+    TranscriptCoverageError,
+    merge_transcript_evidence,
+    parse_transcript_file,
+)
+from video_to_artifact_agent.verifiers.excel import verify_excel_workbook
+from video_to_artifact_agent.workflow import create_initial_spec, redacted_source_info, source_info_from_input
 
 app = typer.Typer(help="Turn video evidence into verified artifacts.")
 
@@ -32,13 +37,6 @@ app = typer.Typer(help="Turn video evidence into verified artifacts.")
 def write_json(path: Path, payload: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(payload + "\n", encoding="utf-8")
-
-
-def source_info_from_input(source: str) -> SourceInfo:
-    parsed = urlparse(source)
-    if parsed.scheme in {"http", "https"}:
-        return SourceInfo(kind=SourceKind.url, url=source, evidence_level="L0")
-    return SourceInfo(kind=SourceKind.local_file, local_path=source, evidence_level="L0")
 
 
 def display_source_info(source: SourceInfo) -> dict[str, object]:
@@ -196,7 +194,7 @@ def mac_mlx_observe(
         raise typer.Exit(3) from exc
 
     spec = BuildSpec(
-        source=source_info,
+        source=redacted_source_info(source_info),
         runtime=adapter.capability(),
         observations=[result.observation],
         evidence=[result.evidence],
@@ -230,26 +228,49 @@ def analyze(
     This command records the source and requested artifact without doing model
     inference. Runtime adapters enrich this spec with L2/L3 evidence.
     """
-    spec = BuildSpec(
-        source=source_info_from_input(source),
+    spec = create_initial_spec(
+        source,
+        artifact_type=artifact_type,
+        title=title,
+        instructions=instructions,
         runtime=RuntimeCapability(runtime=runtime, model=model),
-        evidence=[
-            EvidenceRecord(
-                kind=EvidenceKind.metadata,
-                level="L0",
-                summary="Initial source registered by CLI; no video or ASR evidence has been collected yet.",
-                source_ref=redact_text(source),
-            )
-        ],
-        artifact=ArtifactRequirement(
-            artifact_type=artifact_type,  # type: ignore[arg-type]
-            title=title,
-            instructions=instructions,
-        ),
-        requirements={"workflow_stage": "analysis_requested"},
     )
     write_json(out, spec.model_dump_json(indent=2))
     typer.echo(f"Wrote build spec: {out}")
+
+
+@app.command(name="attach-transcript")
+def attach_transcript(
+    spec_path: Path = typer.Argument(..., help="Build spec JSON path."),
+    transcript_path: Path = typer.Argument(..., help="SRT, WebVTT, or JSON transcript path."),
+    out: Path | None = typer.Option(None, help="Output spec path; defaults to overwriting spec_path."),
+    kind: str = typer.Option("subtitle", help="Transcript evidence kind: subtitle or asr."),
+    language: str | None = typer.Option(None, help="Transcript language code."),
+    audio_duration_sec: float | None = typer.Option(None, help="Audio/video duration for coverage calculation."),
+    model: str | None = typer.Option(None, help="ASR/subtitle model or provider identifier."),
+    coverage_threshold_pct: float = typer.Option(95.0, help="Minimum transcript coverage percentage."),
+    require_coverage: bool = typer.Option(False, help="Fail if coverage is below threshold."),
+) -> None:
+    """Attach L2 subtitle or ASR evidence to a build spec."""
+    spec = BuildSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
+    try:
+        transcript = parse_transcript_file(
+            transcript_path,
+            kind=kind,  # type: ignore[arg-type]
+            language=language,
+            audio_duration_sec=audio_duration_sec,
+            model=model,
+            coverage_threshold_pct=coverage_threshold_pct,
+            require_coverage=require_coverage,
+        )
+    except (TranscriptCoverageError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+
+    merge_transcript_evidence(spec, transcript, source_ref=str(transcript_path))
+    output_path = out or spec_path
+    write_json(output_path, spec.model_dump_json(indent=2))
+    typer.echo(f"Wrote transcript-enriched spec: {output_path}")
 
 
 @app.command()
@@ -257,12 +278,14 @@ def build(
     spec_path: Path = typer.Argument(..., help="Build spec JSON path."),
     out: Path = typer.Option(Path("artifacts/artifact-handoff.json"), help="Builder handoff output."),
 ) -> None:
-    """Create a builder handoff manifest from a build spec.
-
-    Real builders will replace this placeholder per artifact type. The command
-    already validates the shared spec contract and writes an auditable handoff.
-    """
+    """Build an artifact or handoff manifest from a build spec."""
     spec = BuildSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
+    if spec.artifact.artifact_type == "excel":
+        workbook_path = out if out.suffix.lower() == ".xlsx" else out.with_suffix(".xlsx")
+        build_excel_workbook(spec, workbook_path)
+        typer.echo(f"Wrote Excel workbook: {workbook_path}")
+        return
+
     manifest = {
         "version": 1,
         "artifact_type": spec.artifact.artifact_type,
@@ -283,6 +306,14 @@ def verify(
     out: Path = typer.Option(Path("artifacts/verification-report.json"), help="Verification report path."),
 ) -> None:
     """Verify a generated artifact path and optional build spec."""
+    if path.suffix.lower() == ".xlsx":
+        report = verify_excel_workbook(path, spec_path=spec)
+        write_json(out, report.model_dump_json(indent=2))
+        if report.status != "passed":
+            raise typer.Exit(2)
+        typer.echo(f"Wrote verification report: {out}")
+        return
+
     checks: list[VerificationCheck] = []
     if not path.exists():
         report = VerificationReport(
@@ -367,6 +398,50 @@ def schema_command(
 def exit_codes() -> None:
     """Print documented CLI exit codes."""
     typer.echo(json.dumps([code.model_dump() for code in CLI_EXIT_CODES], indent=2))
+
+
+@app.command(name="mcp-manifest")
+def mcp_manifest() -> None:
+    """Print MCP-style tool manifest for agent hosts."""
+    typer.echo(json.dumps(tool_manifest(), indent=2))
+
+
+@app.command(name="mcp-call")
+def mcp_call(
+    name: str = typer.Argument(..., help="MCP tool name."),
+    arguments_json: str = typer.Option("{}", help="JSON object passed to the tool."),
+) -> None:
+    """Dispatch a MCP-style tool call locally."""
+    try:
+        arguments = json.loads(arguments_json)
+    except json.JSONDecodeError as exc:
+        typer.echo(f"Invalid --arguments-json: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    if not isinstance(arguments, dict):
+        typer.echo("--arguments-json must decode to an object", err=True)
+        raise typer.Exit(2)
+
+    result = dispatch_tool(name, arguments, capabilities=[MacMlxRuntimeAdapter().capability()])
+    typer.echo(json.dumps(result, indent=2))
+    if not result.get("ok"):
+        raise typer.Exit(2)
+
+
+@app.command(name="serve-http")
+def serve_http(
+    host: str = typer.Option("127.0.0.1", help="Host interface to bind."),
+    port: int = typer.Option(8765, help="TCP port to bind."),
+) -> None:
+    """Run the lightweight HTTP adapter until interrupted."""
+    server = make_server(host=host, port=port, capabilities=[MacMlxRuntimeAdapter().capability()])
+    address, bound_port = server.server_address
+    typer.echo(f"Serving video-to-artifact-agent HTTP adapter on http://{address}:{bound_port}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        typer.echo("Stopping HTTP adapter.")
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":
