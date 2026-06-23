@@ -31,6 +31,11 @@ model. The command redacts signed URL query strings by default. Use
 `--unsafe-show-secret-urls` only for local debugging where raw URLs will not be
 logged or shared.
 
+The default launcher is `auto`; on Apple Silicon this should resolve to the oMLX
+bundled Python plus its `framework-mlx-base` site-packages. Agents should not
+replace it with bare `python3` unless that environment is known to support the
+MiniCPM-V 4.6 `minicpmv4_6` architecture.
+
 ### `v2a mac-mlx-observe <source>`
 
 Runs the local MLX video runtime and writes a `BuildSpec` containing L3 visual

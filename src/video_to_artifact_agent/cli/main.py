@@ -9,6 +9,7 @@ from video_to_artifact_agent.adapters.mcp import dispatch_tool, tool_manifest
 from video_to_artifact_agent.builders.excel import build_excel_workbook
 from video_to_artifact_agent.privacy import redact_text, redact_url
 from video_to_artifact_agent.runtimes.mac_mlx import (
+    DEFAULT_EXECUTABLE as MAC_MLX_DEFAULT_EXECUTABLE,
     DEFAULT_MODEL as MAC_MLX_DEFAULT_MODEL,
     DEFAULT_PROMPT as MAC_MLX_DEFAULT_PROMPT,
     MacMlxRuntimeAdapter,
@@ -29,7 +30,11 @@ from video_to_artifact_agent.transcripts import (
     parse_transcript_file,
 )
 from video_to_artifact_agent.verifiers.excel import verify_excel_workbook
-from video_to_artifact_agent.workflow import create_initial_spec, redacted_source_info, source_info_from_input
+from video_to_artifact_agent.workflow import (
+    create_initial_spec,
+    redacted_source_info,
+    source_info_from_input,
+)
 
 app = typer.Typer(help="Turn video evidence into verified artifacts.")
 
@@ -72,14 +77,26 @@ def mac_mlx_adapter(
 def capabilities(
     runtime: str = typer.Option("dev-placeholder", help="Runtime adapter name."),
     model: str = typer.Option("not-configured", help="Model identifier."),
-    engine: str | None = typer.Option(None, help="Execution engine such as mlx-vlm or transformers."),
-    video_url: bool = typer.Option(False, "--video-url", help="Runtime supports direct video URLs."),
-    local_video: bool = typer.Option(False, "--local-video", help="Runtime supports local video files."),
+    engine: str | None = typer.Option(
+        None, help="Execution engine such as mlx-vlm or transformers."
+    ),
+    video_url: bool = typer.Option(
+        False, "--video-url", help="Runtime supports direct video URLs."
+    ),
+    local_video: bool = typer.Option(
+        False, "--local-video", help="Runtime supports local video files."
+    ),
     image: bool = typer.Option(False, "--image", help="Runtime supports image inputs."),
     asr: bool = typer.Option(False, "--asr", help="Runtime supports ASR directly."),
-    subtitles: bool = typer.Option(False, "--subtitles", help="Runtime can load subtitles."),
-    stream_headers: bool = typer.Option(False, "--stream-headers", help="Runtime accepts stream headers."),
-    max_num_frames: int | None = typer.Option(None, help="Maximum frames accepted by the runtime."),
+    subtitles: bool = typer.Option(
+        False, "--subtitles", help="Runtime can load subtitles."
+    ),
+    stream_headers: bool = typer.Option(
+        False, "--stream-headers", help="Runtime accepts stream headers."
+    ),
+    max_num_frames: int | None = typer.Option(
+        None, help="Maximum frames accepted by the runtime."
+    ),
 ) -> None:
     """Print a runtime capability manifest."""
     manifest = RuntimeCapability(
@@ -101,12 +118,20 @@ def capabilities(
 @app.command(name="mac-mlx-capabilities")
 def mac_mlx_capabilities(
     model: str = typer.Option(MAC_MLX_DEFAULT_MODEL, help="MLX model identifier."),
-    executable: str = typer.Option("mlx_vlm.generate", help="mlx-vlm command to invoke."),
-    max_tokens: int = typer.Option(512, help="Maximum response tokens for observation."),
+    executable: str = typer.Option(
+        MAC_MLX_DEFAULT_EXECUTABLE, help="mlx-vlm launcher or auto."
+    ),
+    max_tokens: int = typer.Option(
+        512, help="Maximum response tokens for observation."
+    ),
     temperature: float = typer.Option(0.0, help="Model sampling temperature."),
     timeout_sec: int = typer.Option(420, help="Runtime timeout in seconds."),
-    max_num_frames: int = typer.Option(128, help="Maximum video frames requested by the adapter."),
-    max_width: int | None = typer.Option(1280, help="Optional video resize width."),
+    max_num_frames: int = typer.Option(
+        128, help="Maximum video frames requested by the adapter."
+    ),
+    max_width: int | None = typer.Option(
+        None, help="Reserved optional video resize width."
+    ),
 ) -> None:
     """Print the Apple Silicon MLX MiniCPM-V runtime manifest."""
     adapter = mac_mlx_adapter(
@@ -126,12 +151,20 @@ def mac_mlx_command(
     source: str = typer.Argument(..., help="Direct video URL or local video path."),
     prompt: str = typer.Option(MAC_MLX_DEFAULT_PROMPT, help="Observation prompt."),
     model: str = typer.Option(MAC_MLX_DEFAULT_MODEL, help="MLX model identifier."),
-    executable: str = typer.Option("mlx_vlm.generate", help="mlx-vlm command to invoke."),
-    max_tokens: int = typer.Option(512, help="Maximum response tokens for observation."),
+    executable: str = typer.Option(
+        MAC_MLX_DEFAULT_EXECUTABLE, help="mlx-vlm launcher or auto."
+    ),
+    max_tokens: int = typer.Option(
+        512, help="Maximum response tokens for observation."
+    ),
     temperature: float = typer.Option(0.0, help="Model sampling temperature."),
     timeout_sec: int = typer.Option(420, help="Runtime timeout in seconds."),
-    max_num_frames: int = typer.Option(128, help="Maximum video frames requested by the adapter."),
-    max_width: int | None = typer.Option(1280, help="Optional video resize width."),
+    max_num_frames: int = typer.Option(
+        128, help="Maximum video frames requested by the adapter."
+    ),
+    max_width: int | None = typer.Option(
+        None, help="Reserved optional video resize width."
+    ),
     unsafe_show_secret_urls: bool = typer.Option(
         False,
         "--unsafe-show-secret-urls",
@@ -153,7 +186,9 @@ def mac_mlx_command(
     payload = {
         "runtime": adapter.capability().model_dump(mode="json"),
         "source": display_source_info(source_info),
-        "command": raw_command if unsafe_show_secret_urls else adapter.redacted_command(source_info, prompt),
+        "command": raw_command
+        if unsafe_show_secret_urls
+        else adapter.redacted_command(source_info, prompt),
         "redacted_command": adapter.redacted_command(source_info, prompt),
         "secret_material_omitted": not unsafe_show_secret_urls,
     }
@@ -163,18 +198,28 @@ def mac_mlx_command(
 @app.command(name="mac-mlx-observe")
 def mac_mlx_observe(
     source: str = typer.Argument(..., help="Direct video URL or local video path."),
-    out: Path = typer.Option(Path("runs/mac-mlx/spec.json"), help="Output build spec path."),
+    out: Path = typer.Option(
+        Path("runs/mac-mlx/spec.json"), help="Output build spec path."
+    ),
     prompt: str = typer.Option(MAC_MLX_DEFAULT_PROMPT, help="Observation prompt."),
     artifact_type: str = typer.Option("unknown", help="Target artifact type."),
     title: str | None = typer.Option(None, help="Artifact title."),
     instructions: str | None = typer.Option(None, help="Builder instructions."),
     model: str = typer.Option(MAC_MLX_DEFAULT_MODEL, help="MLX model identifier."),
-    executable: str = typer.Option("mlx_vlm.generate", help="mlx-vlm command to invoke."),
-    max_tokens: int = typer.Option(512, help="Maximum response tokens for observation."),
+    executable: str = typer.Option(
+        MAC_MLX_DEFAULT_EXECUTABLE, help="mlx-vlm launcher or auto."
+    ),
+    max_tokens: int = typer.Option(
+        512, help="Maximum response tokens for observation."
+    ),
     temperature: float = typer.Option(0.0, help="Model sampling temperature."),
     timeout_sec: int = typer.Option(420, help="Runtime timeout in seconds."),
-    max_num_frames: int = typer.Option(128, help="Maximum video frames requested by the adapter."),
-    max_width: int | None = typer.Option(1280, help="Optional video resize width."),
+    max_num_frames: int = typer.Option(
+        128, help="Maximum video frames requested by the adapter."
+    ),
+    max_width: int | None = typer.Option(
+        None, help="Reserved optional video resize width."
+    ),
 ) -> None:
     """Run MiniCPM-V through mlx-vlm and write an L3 build spec."""
     adapter = mac_mlx_adapter(
@@ -242,14 +287,28 @@ def analyze(
 @app.command(name="attach-transcript")
 def attach_transcript(
     spec_path: Path = typer.Argument(..., help="Build spec JSON path."),
-    transcript_path: Path = typer.Argument(..., help="SRT, WebVTT, or JSON transcript path."),
-    out: Path | None = typer.Option(None, help="Output spec path; defaults to overwriting spec_path."),
-    kind: str = typer.Option("subtitle", help="Transcript evidence kind: subtitle or asr."),
+    transcript_path: Path = typer.Argument(
+        ..., help="SRT, WebVTT, or JSON transcript path."
+    ),
+    out: Path | None = typer.Option(
+        None, help="Output spec path; defaults to overwriting spec_path."
+    ),
+    kind: str = typer.Option(
+        "subtitle", help="Transcript evidence kind: subtitle or asr."
+    ),
     language: str | None = typer.Option(None, help="Transcript language code."),
-    audio_duration_sec: float | None = typer.Option(None, help="Audio/video duration for coverage calculation."),
-    model: str | None = typer.Option(None, help="ASR/subtitle model or provider identifier."),
-    coverage_threshold_pct: float = typer.Option(95.0, help="Minimum transcript coverage percentage."),
-    require_coverage: bool = typer.Option(False, help="Fail if coverage is below threshold."),
+    audio_duration_sec: float | None = typer.Option(
+        None, help="Audio/video duration for coverage calculation."
+    ),
+    model: str | None = typer.Option(
+        None, help="ASR/subtitle model or provider identifier."
+    ),
+    coverage_threshold_pct: float = typer.Option(
+        95.0, help="Minimum transcript coverage percentage."
+    ),
+    require_coverage: bool = typer.Option(
+        False, help="Fail if coverage is below threshold."
+    ),
 ) -> None:
     """Attach L2 subtitle or ASR evidence to a build spec."""
     spec = BuildSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
@@ -276,12 +335,16 @@ def attach_transcript(
 @app.command()
 def build(
     spec_path: Path = typer.Argument(..., help="Build spec JSON path."),
-    out: Path = typer.Option(Path("artifacts/artifact-handoff.json"), help="Builder handoff output."),
+    out: Path = typer.Option(
+        Path("artifacts/artifact-handoff.json"), help="Builder handoff output."
+    ),
 ) -> None:
     """Build an artifact or handoff manifest from a build spec."""
     spec = BuildSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
     if spec.artifact.artifact_type == "excel":
-        workbook_path = out if out.suffix.lower() == ".xlsx" else out.with_suffix(".xlsx")
+        workbook_path = (
+            out if out.suffix.lower() == ".xlsx" else out.with_suffix(".xlsx")
+        )
         build_excel_workbook(spec, workbook_path)
         typer.echo(f"Wrote Excel workbook: {workbook_path}")
         return
@@ -303,7 +366,9 @@ def build(
 def verify(
     path: Path = typer.Argument(..., help="Artifact or handoff path to verify."),
     spec: Path | None = typer.Option(None, help="Optional build spec path."),
-    out: Path = typer.Option(Path("artifacts/verification-report.json"), help="Verification report path."),
+    out: Path = typer.Option(
+        Path("artifacts/verification-report.json"), help="Verification report path."
+    ),
 ) -> None:
     """Verify a generated artifact path and optional build spec."""
     if path.suffix.lower() == ".xlsx":
@@ -380,7 +445,9 @@ def verify(
 
 @app.command(name="schema")
 def schema_command(
-    model: str = typer.Argument("build-spec", help="build-spec, capability, or verification-report"),
+    model: str = typer.Argument(
+        "build-spec", help="build-spec, capability, or verification-report"
+    ),
 ) -> None:
     """Print JSON schema for public contracts."""
     models = {
@@ -421,7 +488,9 @@ def mcp_call(
         typer.echo("--arguments-json must decode to an object", err=True)
         raise typer.Exit(2)
 
-    result = dispatch_tool(name, arguments, capabilities=[MacMlxRuntimeAdapter().capability()])
+    result = dispatch_tool(
+        name, arguments, capabilities=[MacMlxRuntimeAdapter().capability()]
+    )
     typer.echo(json.dumps(result, indent=2))
     if not result.get("ok"):
         raise typer.Exit(2)
@@ -433,9 +502,13 @@ def serve_http(
     port: int = typer.Option(8765, help="TCP port to bind."),
 ) -> None:
     """Run the lightweight HTTP adapter until interrupted."""
-    server = make_server(host=host, port=port, capabilities=[MacMlxRuntimeAdapter().capability()])
+    server = make_server(
+        host=host, port=port, capabilities=[MacMlxRuntimeAdapter().capability()]
+    )
     address, bound_port = server.server_address
-    typer.echo(f"Serving video-to-artifact-agent HTTP adapter on http://{address}:{bound_port}")
+    typer.echo(
+        f"Serving video-to-artifact-agent HTTP adapter on http://{address}:{bound_port}"
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:

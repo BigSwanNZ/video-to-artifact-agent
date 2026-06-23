@@ -40,7 +40,7 @@ Adapters must declare what they can actually do:
 ```json
 {
   "runtime": "mac-mlx",
-  "model": "openbmb/MiniCPM-V-4.6",
+  "model": "mlx-community/MiniCPM-V-4.6-4bit",
   "supports_video_url": true,
   "supports_local_video": true,
   "supports_image": true,

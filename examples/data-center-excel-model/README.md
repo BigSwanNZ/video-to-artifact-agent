@@ -44,3 +44,7 @@ PYTHONPATH=src python3 -m video_to_artifact_agent.cli.main verify \
 
 For a real video, replace the `analyze` step with `mac-mlx-observe` after
 installing `mlx-vlm` and a MiniCPM-V 4.6 MLX-compatible model.
+
+For the maintainer-machine route that has already succeeded with Kimi Code as an
+agent-surface reference, oMLX, `mlx-vlm`, and MiniCPM-V 4.6, see
+[../local-mac-kimi-omlx-minicpm/README.md](../local-mac-kimi-omlx-minicpm/README.md).

@@ -55,7 +55,7 @@ without guessing.
 ```bash
 v2a capabilities \
   --runtime mac-mlx \
-  --model openbmb/MiniCPM-V-4.6 \
+  --model mlx-community/MiniCPM-V-4.6-4bit \
   --video-url \
   --local-video \
   --image \
@@ -65,7 +65,7 @@ v2a analyze https://example.com/video \
   --artifact-type excel \
   --title "Demo model" \
   --runtime mac-mlx \
-  --model openbmb/MiniCPM-V-4.6 \
+  --model mlx-community/MiniCPM-V-4.6-4bit \
   --out runs/demo/spec.json
 
 v2a attach-transcript runs/demo/spec.json examples/data-center-excel-model/transcript.srt \
@@ -95,6 +95,10 @@ uses `mlx_vlm.generate --video` and writes L3 visual evidence into the build
 spec. `attach-transcript` adds L2 subtitle or ASR evidence. Excel specs build to
 real `.xlsx` workbooks with formula checks.
 
+On Apple Silicon, `mac-mlx` defaults to an `auto` launcher that prefers the oMLX
+bundled Python and site-packages. This avoids accidentally using an older global
+`mlx-vlm` that cannot load the MiniCPM-V 4.6 architecture.
+
 HTTP and MCP-style adapters expose the same contracts to non-Codex agents:
 
 ```bash
@@ -112,11 +116,25 @@ examples/                   reproducible demos without private cookies or videos
 tests/                      unit and smoke tests
 ```
 
+## Examples
+
+- [Data Center Excel Model Demo](examples/data-center-excel-model/README.md):
+  sanitized Excel-builder demo with transcript evidence.
+- [Local Mac Kimi + oMLX + MiniCPM-V 4.6 Route](examples/local-mac-kimi-omlx-minicpm/README.md):
+  maintainer-machine validation trace showing the proven node graph without
+  committing private media or local secrets.
+
 ## Task Management
 
 GitHub Issues are the public collaboration surface. Paperclip can be used as an
 internal agent coordination plane for goals, projects, assignees, and threaded
 work logs. See [docs/task-management.md](docs/task-management.md).
+
+## Acknowledgements
+
+This project acknowledges Kimi Code, MLX, mlx-vlm, oMLX, OpenBMB MiniCPM-V 4.6,
+and the MLX community MiniCPM-V 4.6 conversion. See
+[docs/acknowledgements.md](docs/acknowledgements.md).
 
 ## Privacy And Safety
 
