@@ -146,6 +146,37 @@ def mac_mlx_capabilities(
     typer.echo(adapter.capability().model_dump_json(indent=2))
 
 
+@app.command(name="mac-mlx-doctor")
+def mac_mlx_doctor(
+    model: str = typer.Option(MAC_MLX_DEFAULT_MODEL, help="MLX model identifier."),
+    executable: str = typer.Option(
+        MAC_MLX_DEFAULT_EXECUTABLE, help="mlx-vlm launcher or auto."
+    ),
+    max_tokens: int = typer.Option(
+        512, help="Maximum response tokens for observation."
+    ),
+    temperature: float = typer.Option(0.0, help="Model sampling temperature."),
+    timeout_sec: int = typer.Option(420, help="Runtime timeout in seconds."),
+    max_num_frames: int = typer.Option(
+        128, help="Maximum video frames requested by the adapter."
+    ),
+    max_width: int | None = typer.Option(
+        None, help="Reserved optional video resize width."
+    ),
+) -> None:
+    """Inspect the local mac-mlx launcher and model paths without running inference."""
+    adapter = mac_mlx_adapter(
+        model=model,
+        executable=executable,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        timeout_sec=timeout_sec,
+        max_num_frames=max_num_frames,
+        max_width=max_width,
+    )
+    typer.echo(json.dumps(adapter.diagnostics(), indent=2))
+
+
 @app.command(name="mac-mlx-command")
 def mac_mlx_command(
     source: str = typer.Argument(..., help="Direct video URL or local video path."),

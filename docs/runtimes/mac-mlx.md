@@ -50,12 +50,14 @@ export V2A_MAC_MLX_MODEL=/path/to/MiniCPM-V-4.6-4bit
 
 ```bash
 v2a mac-mlx-capabilities
+v2a mac-mlx-doctor
 v2a mac-mlx-command "https://example.com/video.mp4?signature=secret"
 v2a mac-mlx-observe "https://example.com/video.mp4?signature=secret" \
   --artifact-type excel \
   --out runs/demo/spec.json
 ```
 
+`mac-mlx-doctor` inspects local machine state without running inference.
 `mac-mlx-command` is an audit and debugging command. It prints redacted commands
 by default, so signed CDN URLs do not leak into logs. The raw URL remains inside
 the actual runtime call when `mac-mlx-observe` executes locally.

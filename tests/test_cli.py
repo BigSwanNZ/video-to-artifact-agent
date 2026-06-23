@@ -40,7 +40,14 @@ def test_cli_analyze_build_verify_round_trip(tmp_path: Path) -> None:
 
     result = runner.invoke(
         app,
-        ["verify", str(artifact_path), "--spec", str(spec_path), "--out", str(report_path)],
+        [
+            "verify",
+            str(artifact_path),
+            "--spec",
+            str(spec_path),
+            "--out",
+            str(report_path),
+        ],
     )
     assert result.exit_code == 0, result.output
     assert report_path.exists()
@@ -106,6 +113,23 @@ def test_cli_mac_mlx_capabilities() -> None:
     assert '"model": "mlx-test"' in result.output
 
 
+def test_cli_mac_mlx_doctor_reports_status() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "mac-mlx-doctor",
+            "--model",
+            "mlx-test",
+            "--executable",
+            "mlx_vlm.generate",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert '"status": "ready_with_warnings"' in result.output
+    assert "Explicit executable bypasses the auto launcher" in result.output
+
+
 def test_cli_mac_mlx_command_redacts_url_secrets() -> None:
     result = runner.invoke(
         app,
@@ -146,7 +170,9 @@ def test_cli_mcp_manifest_and_call() -> None:
 
 def test_cli_verify_missing_artifact_exits_2(tmp_path: Path) -> None:
     report_path = tmp_path / "report.json"
-    result = runner.invoke(app, ["verify", str(tmp_path / "missing.json"), "--out", str(report_path)])
+    result = runner.invoke(
+        app, ["verify", str(tmp_path / "missing.json"), "--out", str(report_path)]
+    )
 
     assert result.exit_code == 2
     assert report_path.exists()

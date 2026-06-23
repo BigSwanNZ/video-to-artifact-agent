@@ -145,6 +145,68 @@ class MacMlxRuntimeAdapter:
         ]
         return command
 
+    def diagnostics(self) -> dict[str, object]:
+        launcher = self._launcher_command()
+        python_bin = self._launcher_python_bin(launcher)
+        pythonpath = self._launcher_pythonpath(launcher)
+        issues: list[str] = []
+        warnings: list[str] = []
+
+        if self.config.executable != "auto":
+            warnings.append(
+                "Explicit executable bypasses the auto launcher; verify it is not an old global mlx-vlm."
+            )
+        if python_bin is None:
+            warnings.append(
+                "Launcher does not expose a Python interpreter; PATH must contain a compatible mlx_vlm.generate."
+            )
+        elif "/" in python_bin and not Path(python_bin).exists():
+            issues.append(f"Python executable does not exist: {python_bin}")
+
+        model_path = Path(self.config.model).expanduser()
+        model_is_path = "/" in self.config.model or self.config.model.startswith(".")
+        if model_is_path and not model_path.exists():
+            issues.append(f"Model path does not exist: {self.config.model}")
+
+        if not pythonpath and self.config.executable == "auto":
+            warnings.append(
+                "Auto launcher did not resolve PYTHONPATH; mlx-vlm and cv2 must be importable by the selected Python."
+            )
+
+        site_packages = [
+            {"path": path, "exists": Path(path).expanduser().exists()}
+            for path in pythonpath
+        ]
+        if (
+            self.config.executable == "auto"
+            and site_packages
+            and not any(item["exists"] for item in site_packages)
+        ):
+            issues.append("No resolved PYTHONPATH entries exist on this machine.")
+
+        status = "blocked" if issues else "ready_with_warnings" if warnings else "ready"
+        return {
+            "status": status,
+            "runtime": self.capability().model_dump(mode="json"),
+            "launcher": {
+                "mode": self.config.executable,
+                "command_prefix": [redact_text(part) for part in launcher],
+                "python_bin": python_bin,
+                "python_exists": Path(python_bin).exists()
+                if python_bin and "/" in python_bin
+                else None,
+                "pythonpath": pythonpath,
+                "site_packages": site_packages,
+            },
+            "model": {
+                "value": self.config.model,
+                "kind": "local_path" if model_is_path else "model_id",
+                "exists": model_path.exists() if model_is_path else None,
+            },
+            "issues": issues,
+            "warnings": warnings,
+        }
+
     def _launcher_command(self) -> list[str]:
         if self.config.executable != "auto":
             return shlex.split(self.config.executable)
@@ -190,6 +252,26 @@ class MacMlxRuntimeAdapter:
         if not deduped:
             return None
         return os.pathsep.join(deduped)
+
+    def _launcher_python_bin(self, launcher: list[str]) -> str | None:
+        if launcher and launcher[0] == "env":
+            for index, part in enumerate(launcher):
+                if part == "-m" and index > 0:
+                    return launcher[index - 1]
+            return None
+        if "-m" in launcher:
+            return launcher[0]
+        return None
+
+    def _launcher_pythonpath(self, launcher: list[str]) -> list[str]:
+        for part in launcher:
+            if part.startswith("PYTHONPATH="):
+                return [
+                    path
+                    for path in part.removeprefix("PYTHONPATH=").split(os.pathsep)
+                    if path
+                ]
+        return []
 
     def redacted_command(
         self, source: SourceInfo, prompt: str = DEFAULT_PROMPT

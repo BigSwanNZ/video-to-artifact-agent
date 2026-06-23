@@ -92,6 +92,47 @@ def test_mac_mlx_explicit_executable_bypasses_auto_launcher(monkeypatch) -> None
     assert command[0] == "mlx_vlm.generate"
 
 
+def test_mac_mlx_diagnostics_reports_ready_configured_launcher(tmp_path: Path) -> None:
+    python_bin = tmp_path / "python3.11"
+    omlx_site = tmp_path / "omlx-site"
+    cv2_site = tmp_path / "cv2-site"
+    model_path = tmp_path / "MiniCPM-V-4.6-4bit"
+    python_bin.write_text("#!/usr/bin/env python\n", encoding="utf-8")
+    omlx_site.mkdir()
+    cv2_site.mkdir()
+    model_path.mkdir()
+
+    adapter = MacMlxRuntimeAdapter(
+        MacMlxRuntimeConfig(
+            model=str(model_path),
+            python_bin=str(python_bin),
+            site_packages=str(omlx_site),
+            extra_site_packages=(str(cv2_site),),
+        )
+    )
+
+    diagnostics = adapter.diagnostics()
+
+    assert diagnostics["status"] == "ready"
+    assert diagnostics["model"]["exists"] is True
+    assert diagnostics["launcher"]["python_exists"] is True
+    assert str(omlx_site) in diagnostics["launcher"]["pythonpath"]
+    assert str(cv2_site) in diagnostics["launcher"]["pythonpath"]
+
+
+def test_mac_mlx_diagnostics_warns_on_explicit_launcher() -> None:
+    adapter = MacMlxRuntimeAdapter(
+        MacMlxRuntimeConfig(model="mlx-test", executable="mlx_vlm.generate")
+    )
+
+    diagnostics = adapter.diagnostics()
+
+    assert diagnostics["status"] == "ready_with_warnings"
+    assert (
+        "Explicit executable bypasses the auto launcher" in diagnostics["warnings"][0]
+    )
+
+
 def test_redact_url_and_text() -> None:
     url = "https://example.com/path/video.mp4?auth=secret#frag"
 

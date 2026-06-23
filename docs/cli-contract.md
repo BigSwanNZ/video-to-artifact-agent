@@ -24,6 +24,13 @@ spec.
 Prints the built-in Apple Silicon MLX runtime capability manifest for
 MiniCPM-V 4.6 through `mlx-vlm`.
 
+### `v2a mac-mlx-doctor`
+
+Inspects the local `mac-mlx` launcher, Python executable, `PYTHONPATH`
+site-packages, and model path without running inference. Use this before
+`mac-mlx-observe` when separating local machine state from the public portable
+configuration.
+
 ### `v2a mac-mlx-command <source>`
 
 Prints the `mlx_vlm.generate --video` invocation envelope without running the

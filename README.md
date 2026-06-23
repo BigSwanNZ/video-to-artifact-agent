@@ -84,6 +84,7 @@ an initial Apple Silicon `mac-mlx` adapter:
 
 ```bash
 v2a mac-mlx-capabilities
+v2a mac-mlx-doctor
 v2a mac-mlx-command "https://example.com/video.mp4?signature=secret"
 v2a mac-mlx-observe "https://example.com/video.mp4?signature=secret" \
   --artifact-type excel \

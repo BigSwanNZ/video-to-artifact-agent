@@ -68,12 +68,13 @@ export V2A_MAC_MLX_MODEL=/path/to/MiniCPM-V-4.6-4bit
 From the repository root:
 
 ```bash
+PYTHONPATH=src uv run v2a mac-mlx-doctor
 PYTHONPATH=src uv run v2a mac-mlx-command "/path/to/smoke.mp4"
 ```
 
-Inspect the redacted command before running inference. It should show
-`python -m mlx_vlm.generate --video`, the oMLX Python, and both site-packages
-paths.
+Inspect the doctor result and redacted command before running inference. They
+should show `python -m mlx_vlm.generate --video`, the oMLX Python, and both
+site-packages paths.
 
 Then run:
 
