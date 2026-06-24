@@ -186,18 +186,24 @@ def _parse_json_segments(text: str) -> tuple[list[TranscriptSegment], str | None
     if not isinstance(raw_segments, list):
         raise TranscriptParseError("JSON transcript requires a segments list")
 
-    segments = [_json_segment_to_schema(segment) for segment in raw_segments]
+    segments = [
+        parsed
+        for segment in raw_segments
+        if (parsed := _json_segment_to_schema(segment)) is not None
+    ]
     if not segments:
         raise TranscriptParseError("JSON transcript contains no segments")
     return segments, language, duration
 
 
-def _json_segment_to_schema(segment: Any) -> TranscriptSegment:
+def _json_segment_to_schema(segment: Any) -> TranscriptSegment | None:
     if not isinstance(segment, dict):
         raise TranscriptParseError("JSON transcript segments must be objects")
     start = _number_or_none(segment.get("start", segment.get("start_sec")))
     end = _number_or_none(segment.get("end", segment.get("end_sec")))
     text = segment.get("text")
+    if start is not None and end is not None and start == end and isinstance(text, str) and not text.strip():
+        return None
     if start is None or end is None or not isinstance(text, str) or not text.strip():
         raise TranscriptParseError("JSON transcript segment requires start, end, and text")
     return TranscriptSegment(start=start, end=end, text=text.strip())

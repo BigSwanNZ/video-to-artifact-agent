@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 EvidenceLevel = Literal["L0", "L1", "L2", "L3", "L2+L3"]
 PrivacyMode = Literal["local", "remote", "hybrid"]
-ArtifactType = Literal["excel", "web", "code", "doc", "generic", "unknown"]
+ArtifactType = Literal["excel", "web", "code", "doc", "comfyui_workflow", "generic", "unknown"]
 VerificationStatus = Literal["passed", "failed", "blocked", "not_run"]
 
 

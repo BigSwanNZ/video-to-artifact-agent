@@ -83,6 +83,24 @@ def test_parse_json_segments_as_asr_evidence() -> None:
     assert transcript.segments[1].text == "导出报告"
 
 
+def test_parse_json_ignores_zero_duration_empty_asr_segments() -> None:
+    transcript = parse_transcript(
+        """{
+  "segments": [
+    {"start": 0, "end": 5, "text": "有效语音"},
+    {"start": 5, "end": 5, "text": ""},
+    {"start": 5, "end": 10, "text": "继续讲解"}
+  ]
+}""",
+        fmt="json",
+        kind="asr",
+        audio_duration_sec=10,
+    )
+
+    assert [segment.text for segment in transcript.segments] == ["有效语音", "继续讲解"]
+    assert transcript.coverage_pct == 100.0
+
+
 def test_coverage_gate_rejects_short_transcript_when_requested() -> None:
     with pytest.raises(TranscriptCoverageError, match="coverage"):
         parse_transcript(
