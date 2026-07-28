@@ -1,0 +1,11 @@
+1
+00:00:00,000 --> 00:00:03,000
+Create an inputs sheet for units, price per unit, and cost per unit.
+
+2
+00:00:03,000 --> 00:00:07,000
+Revenue is units multiplied by price, and cost is units multiplied by cost per unit.
+
+3
+00:00:07,000 --> 00:00:12,000
+Gross profit subtracts cost from revenue, and gross margin divides gross profit by revenue.

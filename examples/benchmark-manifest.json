@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "name": "video-to-artifact-agent MVP benchmark seeds",
+  "cases": [
+    {
+      "id": "excel-financial-model-synthetic",
+      "title": "Synthetic Excel financial model lesson",
+      "domain": "excel",
+      "source": "synthetic://excel-financial-model",
+      "artifact_type": "excel",
+      "expected_evidence_level": "L2+L3",
+      "acceptance": [
+        "Workbook contains Inputs, Model, and Checks sheets",
+        "Model sheet includes formulas",
+        "Verification report passes"
+      ],
+      "notes": "Use synthetic or user-supplied media; never commit private training videos."
+    },
+    {
+      "id": "software-tutorial-synthetic",
+      "title": "Synthetic software tutorial",
+      "domain": "software",
+      "source": "synthetic://software-tutorial",
+      "artifact_type": "doc",
+      "expected_evidence_level": "L2+L3",
+      "acceptance": [
+        "Steps are grounded in transcript evidence",
+        "Screens are grounded in visual evidence"
+      ]
+    }
+  ]
+}

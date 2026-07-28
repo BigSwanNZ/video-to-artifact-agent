@@ -56,6 +56,12 @@ def test_build_spec_reports_combined_evidence_level() -> None:
     assert spec.achieved_evidence_level == "L2+L3"
 
 
+def test_artifact_requirement_accepts_comfyui_workflow() -> None:
+    artifact = ArtifactRequirement(artifact_type="comfyui_workflow", title="ComfyUI P4")
+
+    assert artifact.artifact_type == "comfyui_workflow"
+
+
 def test_verification_report_status_follows_checks() -> None:
     report = VerificationReport(
         artifact_path="artifact.xlsx",
